@@ -1,32 +1,48 @@
-import 'dotenv/config'
+import 'dotenv/config';
 import express from 'express';
 import Jimp from 'jimp';
-import {nanoid} from 'nanoid';
+import { nanoid } from 'nanoid';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
-const _dirname = import.meta.dirname;
-const app = express ()
-app.use(express.static(_dirname + '/public'))
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
-app.get ('/image', async (req, res) => {
-    const image_url = req.query.image_url
-    const image = await Jimp.read(image_url)
-    const buffer = await image
-    .cover (500, 500)
-    .grayscale ()
-    .quality(60)
-    .getBufferAsync(Jimp.MIME_JPEG)
+const app = express();
+app.use(express.static(join(__dirname, 'public')));
 
+app.get('/', (req, res) => {
+    res.json({ message: 'Welcome to the image processing server' });
+});
 
-const dirname = _dirname + `/public/img/image-${nanoid()}.`
-await image.writeAsync(dirname)
+app.get('/image', async (req, res) => {
+    try {
+        const imageUrl = req.query.image_url;
 
-res.set("content-type", image/jpeg)
-return res.send(buffer)
+        // Validar la URL de la imagen (puedes agregar más validaciones según sea necesario)
+        if (!imageUrl || !imageUrl.startsWith('http')) {
+            return res.status(400).json({ error: 'Invalid image URL' });
+        }
 
-})
+        const image = await Jimp.read(imageUrl);
 
+        const processedImage = await image
+            .cover(500, 500) // Cambiar según tus necesidades
+            .grayscale()
+            .quality(60) // Cambiar según tus necesidades
+            .getBufferAsync(Jimp.MIME_JPEG);
 
-const PORT = process.env.PORT || 3000
+        const imagePath = join(__dirname, `public/img/${nanoid()}.jpeg`);
+        await image.writeAsync(imagePath);
+
+        res.set('Content-Type', 'image/jpeg');
+        return res.send(processedImage);
+    } catch (error) {
+        console.error('Error processing image:', error);
+        return res.status(500).json({ error: 'Failed to process image' });
+    }
+});
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`example app listening on port ${PORT}`)
-}) 
+    console.log(`Example app listening on port ${PORT}`);
+});
